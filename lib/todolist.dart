@@ -1,16 +1,21 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:intl/intl.dart';
 
 class Todo {
   final String id;
   final String title;
   final bool completed;
+  final DateTime due;
 
   Todo({
     required this.id,
     required this.title,
     required this.completed,
+    required this.due,
   });
 }
 
@@ -29,6 +34,7 @@ class _TodoListScreenState extends State<TodoListScreen> {
   void initState() {
     super.initState();
     _todoStream = _fetchTodos();
+    _scheduleTaskDeletion();
   }
 
   Stream<List<Todo>> _fetchTodos() {
@@ -44,8 +50,32 @@ class _TodoListScreenState extends State<TodoListScreen> {
           id: doc.id,
           title: data['title'],
           completed: data['completed'],
+          due: data['due'] != null ? (data['due'] as Timestamp).toDate() : DateTime.now(),
         );
       }).toList();
+    });
+  }
+
+  void _scheduleTaskDeletion() {
+    // Schedule a task to periodically check for overdue tasks
+    const Duration checkInterval = Duration(seconds: 1);
+    Timer.periodic(checkInterval, (timer) {
+      _deleteOverdueTasks();
+    });
+  }
+
+  void _deleteOverdueTasks() {
+    final DateTime now = DateTime.now();
+    _firestore
+        .collection('users')
+        .doc(_user!.uid)
+        .collection('todos')
+        .where('due', isLessThan: now)
+        .get()
+        .then((querySnapshot) {
+      querySnapshot.docs.forEach((doc) {
+        doc.reference.delete();
+      });
     });
   }
 
@@ -69,7 +99,7 @@ class _TodoListScreenState extends State<TodoListScreen> {
                 ),
                 SizedBox(width: 50,),
                 Text(
-                  'My To Do List',
+                  'My To-Do List',
                   style: TextStyle(
                     fontSize: 40.0,
                     fontWeight: FontWeight.bold,
@@ -106,30 +136,51 @@ class _TodoListScreenState extends State<TodoListScreen> {
                             color: Colors.blueGrey.shade100,
                             borderRadius: BorderRadius.circular(8.0),
                           ),
-                          child: ListTile(
-                            title: Text(
-                              todo.title,
-                              style: TextStyle(
-                                color: Colors.black,
-                                decoration: todo.completed
-                                    ? TextDecoration.lineThrough
-                                    : TextDecoration.none,
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Expanded(
+                                flex: 2,
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      todo.title,
+                                      style: TextStyle(
+                                        color: Colors.black,
+                                        fontSize: 24,
+                                        fontWeight: FontWeight.bold,
+                                        decoration: todo.completed ? TextDecoration.lineThrough : TextDecoration.none,
+                                      ),
+                                    ),
+                                    Text(
+                                      'Due: ${DateFormat.yMd().add_jm().format(todo.due)}', // Display due date and time
+                                      style: TextStyle(
+                                        color: Colors.red,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
-                            ),
-                            leading: Checkbox(
-                              value: todo.completed,
-                              onChanged: (completed) {
-                                _toggleTodoCompletion(todo.id, todo.completed);
-                              },
-                              activeColor: Colors.green,
-                            ),
-                            trailing: IconButton(
-                              icon: Icon(Icons.delete),
-                              onPressed: () {
-                                _deleteTodo(todo.id);
-                              },
-                              color: Colors.red,
-                            ),
+                              Expanded(
+                                child: SizedBox(),
+                              ),
+                              Checkbox(
+                                value: todo.completed,
+                                onChanged: (completed) {
+                                  _toggleTodoCompletion(todo.id, todo.completed);
+                                },
+                                activeColor: Colors.green,
+                              ),
+                              IconButton(
+                                icon: Icon(Icons.delete),
+                                onPressed: () {
+                                  _deleteTodo(todo.id);
+                                },
+                                color: Colors.red,
+                              ),
+                            ],
                           ),
                         );
                       },
@@ -145,16 +196,38 @@ class _TodoListScreenState extends State<TodoListScreen> {
             child: Row(
               children: [
                 Expanded(
-                  child: TextField(
-                    controller: _textEditingController,
-                    decoration: InputDecoration(
-                      labelText: 'Add task',
-                    ),
+                  child: Column(
+                    children: [
+                      TextField(
+                        controller: _textEditingController,
+                        decoration: InputDecoration(
+                          labelText: 'Add task',
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-                SizedBox(width: 16.0),
+                Expanded(
+                  child: Column(
+                    children: [
+                      TextButton(
+                        onPressed: () {
+                          _selectDueDateAndTime(context); // Use a single function for date and time selection
+                        },
+                        child: Text('Select Due Date & Time'), // Display due date and time button
+                      ),
+                      Text(
+                        _dueTime == null
+                            ? 'No due date selected'
+                            : 'Due Date: ${DateFormat.yMd().add_jm().format(_dueTime!)}', // Display selected due date
+                      ),
+                    ],
+                  ),
+                ),
                 ElevatedButton(
-                  onPressed: _addTodo,
+                  onPressed: () {
+                    _addTodo();
+                  },
                   style: ElevatedButton.styleFrom(
                     primary: Colors.green,
                     onPrimary: Colors.white,
@@ -169,9 +242,37 @@ class _TodoListScreenState extends State<TodoListScreen> {
     );
   }
 
+  DateTime? _dueTime;
+
+  Future<void> _selectDueDateAndTime(BuildContext context) async {
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: DateTime.now(),
+      firstDate: DateTime.now(),
+      lastDate: DateTime(DateTime.now().year + 5),
+    );
+    if (picked != null) {
+      final TimeOfDay? pickedTime = await showTimePicker(
+        context: context,
+        initialTime: TimeOfDay.now(),
+      );
+      if (pickedTime != null) {
+        setState(() {
+          _dueTime = DateTime(
+            picked.year,
+            picked.month,
+            picked.day,
+            pickedTime.hour,
+            pickedTime.minute,
+          );
+        });
+      }
+    }
+  }
+
   void _addTodo() {
     String title = _textEditingController.text.trim();
-    if (title.isNotEmpty) {
+    if (title.isNotEmpty && _dueTime != null) {
       _firestore
           .collection('users')
           .doc(_user!.uid)
@@ -179,8 +280,12 @@ class _TodoListScreenState extends State<TodoListScreen> {
           .add({
         'title': title,
         'completed': false,
+        'due': _dueTime,
       });
       _textEditingController.clear();
+      setState(() {
+        _dueTime = null;
+      });
     }
   }
 
@@ -209,4 +314,10 @@ class _TodoListScreenState extends State<TodoListScreen> {
     _textEditingController.dispose();
     super.dispose();
   }
+}
+
+void main() {
+  runApp(MaterialApp(
+    home: TodoListScreen(),
+  ));
 }

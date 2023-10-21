@@ -114,6 +114,7 @@ class UserProfileScreen extends StatelessWidget {
           children: [
             SizedBox(height: 40),
             Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
                 IconButton(
                   icon: Icon(Icons.arrow_back),

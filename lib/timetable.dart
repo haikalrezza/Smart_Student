@@ -24,6 +24,7 @@ class _TimetableScreenState extends State<TimetableScreen> {
   late String _userId;
   late String _currentDay;
   late PageController _pageController;
+  String selectedTimeSlot = '8:00 AM - 10:00 AM'; // Initialize with the first time slot
 
   @override
   void initState() {
@@ -95,7 +96,6 @@ class _TimetableScreenState extends State<TimetableScreen> {
           SizedBox(height: 39),
           Row(
             crossAxisAlignment: CrossAxisAlignment.center,
-
             children: [
               IconButton(
                 icon: Icon(Icons.arrow_back),
@@ -111,12 +111,10 @@ class _TimetableScreenState extends State<TimetableScreen> {
                   style: TextStyle(
                     fontSize: 30,
                     fontWeight: FontWeight.bold,
-
                   ),
                 ),
-
-
-              ), GestureDetector(
+              ),
+              GestureDetector(
                 onTap: () {
                   showDialog(
                     context: context,
@@ -183,9 +181,7 @@ class _TimetableScreenState extends State<TimetableScreen> {
               String className = '';
               String lecturer = '';
               String venue = '';
-              TimeOfDay selectedStartTime = TimeOfDay.now();
-              TimeOfDay selectedEndTime = TimeOfDay.fromDateTime(DateTime.now().add(Duration(hours: 1)));
-              String selectedDay = _currentDay; // Initialize with the current day
+              String selectedTimeSlot = '8:00 AM - 10:00 AM'; // Initialize with the first time slot
 
               return StatefulBuilder(
                 builder: (context, setState) {
@@ -210,10 +206,10 @@ class _TimetableScreenState extends State<TimetableScreen> {
                         SizedBox(height: 16),
                         Text('Day:'),
                         DropdownButton<String>(
-                          value: selectedDay,
+                          value: _currentDay,
                           onChanged: (newValue) {
                             setState(() {
-                              selectedDay = newValue!;
+                              _currentDay = newValue!;
                             });
                           },
                           items: <String>[
@@ -232,84 +228,26 @@ class _TimetableScreenState extends State<TimetableScreen> {
                           }).toList(),
                         ),
                         SizedBox(height: 16),
-                        Row(
-                          children: [
-                            Text('Start:'),
-                            Container(
-                              margin: EdgeInsets.symmetric(horizontal: 8),
-                              child: ElevatedButton(
-                                style: ElevatedButton.styleFrom(
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  padding: EdgeInsets.zero,
-                                  minimumSize: Size(40, 40),
-                                ),
-                                onPressed: () async {
-                                  final TimeOfDay? pickedTime = await showTimePicker(
-                                    context: context,
-                                    initialTime: selectedStartTime,
-                                  );
-                                  if (pickedTime != null) {
-                                    setState(() {
-                                      selectedStartTime = pickedTime;
-                                    });
-                                  }
-                                },
-                                child: Text(selectedStartTime.format(context)),
-                              ),
-                            ),
-                            SizedBox(height: 16),
-                            Text('End:'),
-                            Container(
-                              margin: EdgeInsets.symmetric(horizontal: 8),
-                              child: ElevatedButton(
-                                style: ElevatedButton.styleFrom(
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  padding: EdgeInsets.zero,
-                                  minimumSize: Size(40, 40),
-                                ),
-                                onPressed: () async {
-                                  final TimeOfDay? pickedTime = await showTimePicker(
-                                    context: context,
-                                    initialTime: selectedEndTime,
-                                  );
-                                  if (pickedTime != null) {
-                                    if (pickedTime.hour > selectedStartTime.hour ||
-                                        (pickedTime.hour == selectedStartTime.hour && pickedTime.minute > selectedStartTime.minute)) {
-                                      setState(() {
-                                        selectedEndTime = pickedTime;
-                                      });
-                                    } else {
-                                      showDialog(
-                                        context: context,
-                                        builder: (context) {
-                                          return AlertDialog(
-                                            title: Text('Invalid Time'),
-                                            content: Text('The end time must be after the start time.'),
-                                            actions: [
-                                              TextButton(
-                                                onPressed: () {
-                                                  Navigator.pop(context);
-                                                },
-                                                child: Text('OK'),
-                                              ),
-                                            ],
-                                          );
-                                        },
-                                      );
-                                    }
-                                  }
-                                },
-                                child: Text(selectedEndTime.format(context)),
-                              ),
-                            ),
-                          ],
+                        Text('Time Slot:'),
+                        DropdownButton<String>(
+                          value: selectedTimeSlot,
+                          onChanged: (newValue) {
+                            setState(() {
+                              selectedTimeSlot = newValue!;
+                            });
+                          },
+                          items: [
+                            '8:00 AM - 10:00 AM',
+                            '10:00 AM - 12:00 PM',
+                            '01:00 PM - 03:00 PM',
+                            '03:00 PM - 05:00 PM',
+                          ].map<DropdownMenuItem<String>>((String value) {
+                            return DropdownMenuItem<String>(
+                              value: value,
+                              child: Text(value),
+                            );
+                          }).toList(),
                         ),
-
-
                       ],
                     ),
                     actions: [
@@ -322,28 +260,25 @@ class _TimetableScreenState extends State<TimetableScreen> {
                       TextButton(
                         onPressed: () {
                           if (className.isNotEmpty && lecturer.isNotEmpty && venue.isNotEmpty) {
-                            final DateTime startTime = DateTime(
-                              DateTime.now().year,
-                              DateTime.now().month,
-                              DateTime.now().day,
-                              selectedStartTime.hour,
-                              selectedStartTime.minute,
-                            );
-                            final DateTime endTime = DateTime(
-                              DateTime.now().year,
-                              DateTime.now().month,
-                              DateTime.now().day,
-                              selectedEndTime.hour,
-                              selectedEndTime.minute,
-                            );
+                            // Convert selectedTimeSlot to start and end times
+                            final List<String> selectedTimeSlotParts = selectedTimeSlot.split(' - ');
+                            final String selectedStartTime = selectedTimeSlotParts[0];
+                            final String selectedEndTime = selectedTimeSlotParts[1];
 
-                            _addClass(className, lecturer, venue, selectedDay, startTime, endTime);
+                            // Parse the time with am/pm
+                            final DateFormat dateFormat = DateFormat('hh:mm a');
+                            final DateTime startTime = dateFormat.parse(selectedStartTime);
+                            final DateTime endTime = dateFormat.parse(selectedEndTime);
+
+                            _addClass(className, lecturer, venue, _currentDay, startTime, endTime);
 
                             Navigator.pop(context);
                           }
                         },
                         child: Text('Add'),
                       ),
+
+
                     ],
                   );
                 },
@@ -356,22 +291,72 @@ class _TimetableScreenState extends State<TimetableScreen> {
     );
   }
 
-  void _addClass(String className, String lecturer, String venue, String day, DateTime startTime, DateTime endTime) {
-    FirebaseFirestore.instance
+  Future<void> _addClass(String className, String lecturer, String venue, String day, DateTime startTime, DateTime endTime) async {
+    final querySnapshot = await FirebaseFirestore.instance
         .collection('users')
         .doc(_userId)
         .collection('timetable')
-        .add({
-      'className': className,
-      'lecturer': lecturer,
-      'venue': venue,
-      'day': day,
-      'startTime': startTime,
-      'endTime': endTime,
-    })
-        .then((value) => print('Class added'))
-        .catchError((error) => print('Failed to add class: $error'));
+        .where('day', isEqualTo: day)
+        .get();
+
+    int newStartTimeMinutes = startTime.hour * 60 + startTime.minute;
+    int newEndTimeMinutes = endTime.hour * 60 + endTime.minute;
+
+    bool isInterference = false;
+
+    querySnapshot.docs.forEach((doc) {
+      final data = doc.data() as Map<String, dynamic>;
+      final existingStartTime = (data['startTime'] as Timestamp).toDate();
+      final existingEndTime = (data['endTime'] as Timestamp).toDate();
+
+      int existingStartTimeMinutes = existingStartTime.hour * 60 + existingStartTime.minute;
+      int existingEndTimeMinutes = existingEndTime.hour * 60 + existingEndTime.minute;
+
+      // Check if the new class interferes with an existing class
+      if ((newStartTimeMinutes >= existingStartTimeMinutes && newStartTimeMinutes < existingEndTimeMinutes) ||
+          (newEndTimeMinutes > existingStartTimeMinutes && newEndTimeMinutes <= existingEndTimeMinutes) ||
+          (newStartTimeMinutes <= existingStartTimeMinutes && newEndTimeMinutes >= existingEndTimeMinutes)) {
+        isInterference = true;
+      }
+    });
+
+    if (isInterference) {
+      showDialog(
+        context: context,
+        builder: (context) {
+          return AlertDialog(
+            title: Text('Error Adding Class'),
+            content: Text('You cannot add a class that interferes with an existing class on the same day and time slot.'),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  Navigator.pop(context);
+                },
+                child: Text('OK'),
+              ),
+            ],
+          );
+        },
+      );
+    } else {
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(_userId)
+          .collection('timetable')
+          .add({
+        'className': className,
+        'lecturer': lecturer,
+        'venue': venue,
+        'day': day,
+        'startTime': startTime,
+        'endTime': endTime,
+      });
+
+      // Close the dialog
+      print('Class added');
+    }
   }
+
 }
 
 class TimetablePage extends StatelessWidget {
@@ -509,11 +494,23 @@ class TimetablePage extends StatelessWidget {
   bool _isCurrentClass(ClassData classData) {
     final currentday = DateFormat('EEEE').format(DateTime.now()).toLowerCase();
     final now = DateTime.now();
-    final isCurrentDay = classData.day.toLowerCase() == currentday;
+    final startTime = DateTime(
+      now.year,
+      now.month,
+      now.day,
+      classData.startTime.hour,
+      classData.startTime.minute,
+    );
+    final endTime = DateTime(
+      now.year,
+      now.month,
+      now.day,
+      classData.endTime.hour,
+      classData.endTime.minute,
+    );
 
-    return isCurrentDay && now.isAfter(classData.startTime) && now.isBefore(classData.endTime);
+    return classData.day == currentday && startTime.isBefore(now) && endTime.isAfter(now);
   }
-
 
   void _deleteClass(ClassData classData) {
     FirebaseFirestore.instance
@@ -529,307 +526,8 @@ class TimetablePage extends StatelessWidget {
 
 void main() {
   runApp(MaterialApp(
-    home: TimetableScreen(),
+    home: Scaffold(
+      body: TimetableScreen(),
+    ),
   ));
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-// import 'package:flutter/material.dart';
-// import 'package:cloud_firestore/cloud_firestore.dart';
-// import 'package:firebase_auth/firebase_auth.dart';
-// import 'package:intl/intl.dart';
-//
-// class ClassData {
-//   final String id;
-//   final String className;
-//   final String lecturer;
-//   final String venue;
-//   final String day;
-//   final DateTime startTime;
-//   final DateTime endTime;
-//
-//   ClassData(this.id, this.className, this.lecturer, this.venue, this.day, this.startTime, this.endTime);
-// }
-//
-// class TimetableScreen extends StatefulWidget {
-//   @override
-//   _TimetableScreenState createState() => _TimetableScreenState();
-// }
-//
-// class _TimetableScreenState extends State<TimetableScreen> {
-//   late String _userId;
-//   late String _currentDay;
-//
-//   @override
-//   void initState() {
-//     super.initState();
-//     _userId = FirebaseAuth.instance.currentUser!.uid;
-//
-//     // Get the current day and format it as a lowercase string
-//     _currentDay = DateFormat('EEEE').format(DateTime.now()).toLowerCase();
-//     print(_currentDay);
-//   }
-//
-//   @override
-//   Widget build(BuildContext context) {
-//     return Scaffold(
-//       appBar: AppBar(
-//         title: Text('Class Timetable'),
-//       ),
-//       body: StreamBuilder<QuerySnapshot>(
-//         stream: FirebaseFirestore.instance
-//             .collection('users')
-//             .doc(_userId)
-//             .collection('timetable')
-//             .where('day', isEqualTo: _currentDay)
-//             .orderBy('startTime', descending: false)
-//             .snapshots(),
-//         builder: (BuildContext context, AsyncSnapshot<QuerySnapshot> snapshot) {
-//           if (snapshot.hasError) {
-//             return Center(
-//               child: Text('Error: ${snapshot.error}'),
-//             );
-//           }
-//
-//           if (snapshot.connectionState == ConnectionState.waiting) {
-//             return Center(
-//               child: CircularProgressIndicator(),
-//             );
-//           }
-//
-//           final List<ClassData> classes = snapshot.data!.docs.map((doc) {
-//             final data = doc.data() as Map<String, dynamic>;
-//             return ClassData(
-//               doc.id,
-//               data['className'],
-//               data['lecturer'],
-//               data['venue'],
-//               data['day'],
-//               data['startTime'].toDate(),
-//               data['endTime'].toDate(),
-//             );
-//           }).toList();
-//
-//           if (classes.isEmpty) {
-//             return Center(
-//               child: Text('No classes found for $_currentDay.'),
-//             );
-//           }
-//
-//           return ListView.separated(
-//             separatorBuilder: (context, index) => Divider(),
-//             itemCount: classes.length,
-//             itemBuilder: (context, index) {
-//               final classData = classes[index];
-//               final startTime = DateFormat.jm().format(classData.startTime);
-//               final endTime = DateFormat.jm().format(classData.endTime);
-//
-//               return ListTile(
-//                 title: Text(classData.className),
-//                 subtitle: Text('$startTime - $endTime\n${classData.venue}'),
-//                 trailing: IconButton(
-//                   icon: Icon(Icons.delete),
-//                   onPressed: () => _deleteClass(classData),
-//                 ),
-//               );
-//             },
-//           );
-//         },
-//       ),
-//       floatingActionButton: FloatingActionButton(
-//         onPressed: () {
-//           showDialog(
-//             context: context,
-//             builder: (context) {
-//               String className = '';
-//               String lecturer = '';
-//               String venue = '';
-//               TimeOfDay selectedStartTime = TimeOfDay.now();
-//               TimeOfDay selectedEndTime = TimeOfDay.now();
-//               String selectedDay = _currentDay; // Initialize with the current day
-//
-//               return StatefulBuilder(
-//                 builder: (context, setState) {
-//                   return AlertDialog(
-//                     title: Text('Add Class'),
-//                     content: Column(
-//                       mainAxisSize: MainAxisSize.min,
-//                       crossAxisAlignment: CrossAxisAlignment.start,
-//                       children: [
-//                         TextField(
-//                           decoration: InputDecoration(labelText: 'Class Name'),
-//                           onChanged: (value) => className = value,
-//                         ),
-//                         TextField(
-//                           decoration: InputDecoration(labelText: 'Lecturer'),
-//                           onChanged: (value) => lecturer = value,
-//                         ),
-//                         TextField(
-//                           decoration: InputDecoration(labelText: 'Venue'),
-//                           onChanged: (value) => venue = value,
-//                         ),
-//                         SizedBox(height: 16),
-//                         Text('Day:'),
-//                         DropdownButton<String>(
-//                           value: selectedDay,
-//                           onChanged: (newValue) {
-//                             setState(() {
-//                               selectedDay = newValue!;
-//                             });
-//                           },
-//                           items: <String>[
-//                             'monday',
-//                             'tuesday',
-//                             'wednesday',
-//                             'thursday',
-//                             'friday',
-//                             'saturday',
-//                             'sunday',
-//                           ].map<DropdownMenuItem<String>>((String value) {
-//                             return DropdownMenuItem<String>(
-//                               value: value,
-//                               child: Text(value.toUpperCase()),
-//                             );
-//                           }).toList(),
-//                         ),
-//                         SizedBox(height: 16),
-//                         Text('Start Time:'),
-//                         ElevatedButton(
-//                           onPressed: () async {
-//                             final TimeOfDay? pickedTime = await showTimePicker(
-//                               context: context,
-//                               initialTime: selectedStartTime,
-//                             );
-//                             if (pickedTime != null) {
-//                               setState(() {
-//                                 selectedStartTime = pickedTime;
-//                               });
-//                             }
-//                           },
-//                           child: Text(selectedStartTime.format(context)),
-//                         ),
-//                         SizedBox(height: 16),
-//                         Text('End Time:'),
-//                         ElevatedButton(
-//                           onPressed: () async {
-//                             final TimeOfDay? pickedTime = await showTimePicker(
-//                               context: context,
-//                               initialTime: selectedEndTime,
-//                             );
-//                             if (pickedTime != null) {
-//                               setState(() {
-//                                 selectedEndTime = pickedTime;
-//                               });
-//                             }
-//                           },
-//                           child: Text(selectedEndTime.format(context)),
-//                         ),
-//                       ],
-//                     ),
-//                     actions: [
-//                       TextButton(
-//                         onPressed: () {
-//                           Navigator.pop(context);
-//                         },
-//                         child: Text('Cancel'),
-//                       ),
-//                       TextButton(
-//                         onPressed: () {
-//                           if (className.isNotEmpty && lecturer.isNotEmpty && venue.isNotEmpty) {
-//                             final DateTime startTime = DateTime(
-//                               DateTime.now().year,
-//                               DateTime.now().month,
-//                               DateTime.now().day,
-//                               selectedStartTime.hour,
-//                               selectedStartTime.minute,
-//                             );
-//                             final DateTime endTime = DateTime(
-//                               DateTime.now().year,
-//                               DateTime.now().month,
-//                               DateTime.now().day,
-//                               selectedEndTime.hour,
-//                               selectedEndTime.minute,
-//                             );
-//
-//                             FirebaseFirestore.instance
-//                                 .collection('users')
-//                                 .doc(_userId)
-//                                 .collection('timetable')
-//                                 .add({
-//                               'className': className,
-//                               'lecturer': lecturer,
-//                               'venue': venue,
-//                               'day': selectedDay.toLowerCase(), // Save the day in lowercase
-//                               'startTime': startTime,
-//                               'endTime': endTime,
-//                             });
-//                           }
-//
-//                           Navigator.pop(context);
-//                         },
-//                         child: Text('Add'),
-//                       ),
-//                     ],
-//                   );
-//                 },
-//               );
-//             },
-//           );
-//         },
-//         child: Icon(Icons.add),
-//       ),
-//     );
-//   }
-//
-//   void _deleteClass(ClassData classData) {
-//     showDialog(
-//       context: context,
-//       builder: (context) {
-//         return AlertDialog(
-//           title: Text('Delete Class'),
-//           content: Text('Are you sure you want to delete this class?'),
-//           actions: [
-//             TextButton(
-//               onPressed: () {
-//                 Navigator.pop(context);
-//               },
-//               child: Text('Cancel'),
-//             ),
-//             TextButton(
-//               onPressed: () {
-//                 FirebaseFirestore.instance
-//                     .collection('users')
-//                     .doc(_userId)
-//                     .collection('timetable')
-//                     .doc(classData.id)
-//                     .delete();
-//                 Navigator.pop(context);
-//               },
-//               child: Text('Delete'),
-//             ),
-//           ],
-//         );
-//       },
-//     );
-//   }
-// }

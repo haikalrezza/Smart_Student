@@ -153,7 +153,7 @@ class HomeScreen extends StatelessWidget {
                 children: [
                   itemDashboard(
                     context,
-                    'Schedule',
+                    'Class Schedule',
                     CupertinoIcons.table_badge_more,
                     Colors.lightBlue,
                         () {
@@ -182,21 +182,7 @@ class HomeScreen extends StatelessWidget {
                       // Handle To-Do-List onTap
                     },
                   ),
-                  itemDashboard(
-                    context,
-                    'Assignment Tracker',
-                    CupertinoIcons.square_list,
-                    Colors.purple,
-                        () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => AssignmentTrackerScreen(),
-                            ),
-                          );
-                      // Handle Assignment Tracker onTap
-                    },
-                  ),
+
                   itemDashboard(
                     context,
                     'Pomodoro Timer',
@@ -214,7 +200,7 @@ class HomeScreen extends StatelessWidget {
                   ),
                   itemDashboard(
                     context,
-                    'CGPA Calculator',
+                    'CGPA Tracker',
                     CupertinoIcons.pencil,
                     Colors.indigo,
                         () {
@@ -230,7 +216,7 @@ class HomeScreen extends StatelessWidget {
                   ),
                   itemDashboard(
                     context,
-                    'E-Learning',
+                    'E-Learning Web Shortcut',
                     CupertinoIcons.book_fill,
                     Colors.teal,
                         () {
@@ -240,6 +226,21 @@ class HomeScreen extends StatelessWidget {
                           builder: (context) => WebViewApp(),
                         ),
                       );
+                    },
+                  ),
+                  itemDashboard(
+                    context,
+                    'My Profile',
+                    CupertinoIcons.profile_circled,
+                    Colors.purple,
+                        () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => UserProfileScreen(),
+                        ),
+                      );
+                      // Handle Assignment Tracker onTap
                     },
                   ),
                 ],

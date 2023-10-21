@@ -1,10 +1,15 @@
 import 'dart:io';
 
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'bitc.dart';
+import 'bitm.dart';
+import 'bitz.dart';
+import 'bits.dart';
 import 'user.dart';
 
 class EditProfileScreen extends StatefulWidget {
@@ -20,12 +25,14 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   late TextEditingController _nameController;
   late TextEditingController _universityController;
   late TextEditingController _yearOfStudyController;
-  late TextEditingController _courseNameController;
-
+  String _selectedCourse = ''; // Default course option
   File? _selectedImage;
   bool _isUploading = false;
   bool _isEditingName = false;
   String? _photoUrl;
+  bool _isCourseNameMissing = false;
+
+  final List<String> _courseOptions = ['','Bachelor of Computer Science (Software Development) with Honours', 'Bachelor of Computer Science (Computer Security) with Honours', 'Bachelor of Computer Science (Computer Neworking) with Honours', 'Bachelor of Computer Science (Interactive Media) with Honours'];
 
   @override
   void initState() {
@@ -33,7 +40,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     _nameController = TextEditingController();
     _universityController = TextEditingController();
     _yearOfStudyController = TextEditingController();
-    _courseNameController = TextEditingController();
     _fetchProfileData();
   }
 
@@ -42,7 +48,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     _nameController.dispose();
     _universityController.dispose();
     _yearOfStudyController.dispose();
-    _courseNameController.dispose();
     super.dispose();
   }
 
@@ -77,9 +82,15 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           _yearOfStudyController.text = yearOfStudy;
         });
       }
-      if (courseName != null) {
+      if (courseName == null || courseName.isEmpty) {
+        // Course name is missing or not defined
         setState(() {
-          _courseNameController.text = courseName;
+          _isCourseNameMissing = true;
+        });
+      } else {
+        // Course name is defined
+        setState(() {
+          _selectedCourse = courseName;
         });
       }
       if (photoUrl != null && photoUrl.isNotEmpty) {
@@ -105,12 +116,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     }
   }
 
-
   Future<String> _uploadProfilePhoto() async {
-    // setState(() {
-    //   _isUploading = true;
-    // });
-
     final Reference storageRef = FirebaseStorage.instance
         .ref()
         .child('profile_photos')
@@ -126,6 +132,84 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     });
 
     return downloadUrl;
+  }
+
+  Future<void> _deleteExistingSubjects(String userId) async {
+    final QuerySnapshot subjectsSnapshot = await FirebaseFirestore.instance
+        .collection('users')
+        .doc(userId)
+        .collection('cgpa')
+        .get();
+
+    final List<Future<void>> deleteTasks = [];
+
+    for (QueryDocumentSnapshot doc in subjectsSnapshot.docs) {
+      deleteTasks.add(doc.reference.delete());
+    }
+
+    await Future.wait(deleteTasks);
+  }
+
+
+  Future<void> _predefined() async {
+
+
+
+    final List<String> allSemesters = [
+      'Year One : Semester 1',
+      'Year One : Semester 2',
+      'Year Two : Semester 1',
+      'Year Two : Semester 2',
+      'Year Three : Semester 1',
+      'Year Three : Semester 2',
+      'Year Three : Special Semester',
+      'Year Four : Semester 1',
+    ];
+
+    final FirebaseAuth _auth = FirebaseAuth.instance;
+    final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+
+    final User? user = _auth.currentUser;
+    final userId = user!.uid;
+    final List<Future<void>> addSubjectTasks = [];
+
+    await _deleteExistingSubjects(userId);
+
+
+    for (final semester in allSemesters) {
+      final DocumentReference semesterDocRef = _firestore
+          .collection('users')
+          .doc(userId)
+          .collection('cgpa')
+          .doc(semester);
+      await semesterDocRef.set({'Semester': semester}, SetOptions(merge: true));
+      final subjectsForSemester = _getSubjectsForSelectedCourse(semester);
+
+      if (subjectsForSemester != null) {
+        for (final subjectData in subjectsForSemester) {
+          addSubjectTasks.add(semesterDocRef.collection('subjects').add(subjectData));
+        }
+      }
+
+      await Future.wait(addSubjectTasks);
+      print('Predefined subjects added for all semesters');
+    }
+  }
+
+  List<Map<String, dynamic>>? _getSubjectsForSelectedCourse(String semester) {
+    switch (_selectedCourse) {
+      case 'Bachelor of Computer Science (Computer Security) with Honours':
+        return bitz[semester];
+      case 'Bachelor of Computer Science (Computer Networking) with Honours':
+        return bitc[semester];
+      case 'Bachelor of Computer Science (Interactive Media) with Honours':
+        return bitm[semester];
+      case 'Bachelor of Computer Science (Software Development) with Honours':
+        return bits[semester];
+      default:
+        return bits[semester];
+
+    }
   }
 
   Future<void> _saveProfileChanges() async {
@@ -146,7 +230,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       'photoUrl': photoUrl,
       'university': _universityController.text,
       'yearOfStudy': _yearOfStudyController.text,
-      'courseName': _courseNameController.text,
+      'courseName': _selectedCourse,
     };
 
     await userRef.set(profileData);
@@ -162,9 +246,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         child: Padding(
           padding: const EdgeInsets.all(16.0),
           child: Column(
-
             children: [
-              SizedBox(height: 30,),
+              SizedBox(
+                height: 30,
+              ),
               Row(
                 mainAxisAlignment: MainAxisAlignment.start,
                 children: [
@@ -183,7 +268,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   ),
                 ],
               ),
-              SizedBox(height: 49,),
+              SizedBox(
+                height: 49,
+              ),
               GestureDetector(
                 onTap: _selectImage,
                 child: Stack(
@@ -224,7 +311,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                     ),
                     if (_isUploading)
                       CircularProgressIndicator(
-                        valueColor: AlwaysStoppedAnimation<Color>(Colors.black),
+                        valueColor:
+                        AlwaysStoppedAnimation<Color>(Colors.black),
                       ),
                   ],
                 ),
@@ -290,33 +378,76 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 ),
               ),
               SizedBox(height: 16.0),
-              TextFormField(
-                controller: _yearOfStudyController,
-                keyboardType: TextInputType.number,
-                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                decoration: InputDecoration(
-                  labelText: 'Year of Study',
-                  border: OutlineInputBorder(),
-                ),
-              ),
+
               SizedBox(height: 16.0),
-              TextFormField(
-                controller: _courseNameController,
-                decoration: InputDecoration(
-                  labelText: 'Course Name',
-                  border: OutlineInputBorder(),
+              if (_isCourseNameMissing)
+                Column(
+                  children: [
+                    SizedBox(height: 16.0),
+                    Text('Please select your course:'),
+                    DropdownButton<String>(
+                      value: _selectedCourse,
+                      onChanged: (newValue) {
+                        setState(() {
+                          _selectedCourse = newValue!;
+                        });
+                      },
+                      items: _courseOptions.map<DropdownMenuItem<String>>(
+                            (value) {
+                          return DropdownMenuItem<String>(
+                            value: value,
+                            child: Text(value),
+                          );
+                        },
+                      ).toList(),
+                    ),
+                    SizedBox(height: 16.0),
+                    FloatingActionButton(
+                      onPressed: () {
+                        showDialog(
+                          context: context,
+                          builder: (BuildContext context) {
+                            return AlertDialog(
+                              title: Text('Confirmation'),
+                              content: Text(
+                                'Course Name can only be set once! Are you sure you want to proceed?',
+                              ),
+                              actions: <Widget>[
+                                TextButton(
+                                  child: Text('Cancel'),
+                                  onPressed: () {
+                                    Navigator.of(context).pop();
+                                  },
+                                ),
+                                TextButton(
+                                  child: Text('Proceed'),
+                                  onPressed: () {
+                                    Navigator.of(context).pop(); // Close the dialog
+                                    _predefined(); // Call the _predefined function
+                                  },
+                                ),
+                              ],
+                            );
+                          },
+                        );
+                      },
+                      child: Icon(Icons.system_update_tv_outlined), // You can change this icon to any other icon you like
+                      backgroundColor: Colors.green[100],
+                      mini: true,// Set the background color for the FAB
+                    ),
+
+                  ],
                 ),
-              ),
-              SizedBox(height: 16.0),
+              SizedBox(height: 70),
               ElevatedButton(
                 onPressed: _saveProfileChanges,
                 child: Text('Save Changes'),
               ),
+             
             ],
           ),
         ),
       ),
     );
-
   }
 }

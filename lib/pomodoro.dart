@@ -21,6 +21,9 @@ class _PomodoroScreenState extends State<PomodoroScreen> {
 
   AudioCache audioCache = AudioCache();
 
+  int _selectedDuration = 25; // Default timer duration in minutes
+  List<int> _timerDurations = [15, 25, 30, 45, 60]; // List of available timer durations
+
   @override
   void initState() {
     super.initState();
@@ -36,7 +39,7 @@ class _PomodoroScreenState extends State<PomodoroScreen> {
         if (_minutes == 0 && _seconds == 0) {
           if (_isBreakTime) {
             _isBreakTime = false;
-            _minutes = 25;
+            _minutes = _selectedDuration; // Use the selected duration
           } else {
             _playSound();
             _isBreakTime = true;
@@ -69,8 +72,8 @@ class _PomodoroScreenState extends State<PomodoroScreen> {
 
   void _resetTimer() {
     setState(() {
-      _minutes = 0;
-      _seconds = 3;
+      _minutes = _selectedDuration;
+      _seconds = 0;
       _percent = 1.0;
       _isRunning = false;
       _isBreakTime = false;
@@ -80,7 +83,7 @@ class _PomodoroScreenState extends State<PomodoroScreen> {
 
   void _updateTimerProgress() {
     int totalSeconds = (_minutes * 60) + _seconds;
-    double percent = totalSeconds / (_isBreakTime ? 5 * 60 : 25 * 60);
+    double percent = totalSeconds / (_isBreakTime ? 5 * 60 : _selectedDuration * 60);
     setState(() {
       _percent = percent;
     });
@@ -173,6 +176,26 @@ class _PomodoroScreenState extends State<PomodoroScreen> {
               ],
             ),
             SizedBox(height: 70),
+            Center(
+              child: DropdownButton<int>(
+                value: _selectedDuration,
+                items: _timerDurations.map((int duration) {
+                  return DropdownMenuItem<int>(
+                    value: duration,
+                    child: Text('$duration minutes'),
+                  );
+                }).toList(),
+                onChanged: (int? value) {
+                  if (value != null) {
+                    setState(() {
+                      _selectedDuration = value;
+                      _resetTimer(); // Reset the timer when the duration changes
+                    });
+                  }
+                },
+              ),
+            ),
+            SizedBox(height: 20),
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
@@ -181,7 +204,6 @@ class _PomodoroScreenState extends State<PomodoroScreen> {
                   style: TextStyle(
                     fontSize: 30,
                     fontWeight: FontWeight.bold,
-
                   ),
                 ),
               ],
@@ -225,9 +247,7 @@ class _PomodoroScreenState extends State<PomodoroScreen> {
             SizedBox(height: 20),
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-
-              ],
+              children: [],
             ),
             SizedBox(height: 20),
             Row(

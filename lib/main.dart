@@ -6,7 +6,8 @@ import 'package:Smart_Student/HomeScreen.dart';
 import 'authenticate.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+
+
 
 
 void main() async {
@@ -25,8 +26,10 @@ void main() async {
   // Navigate to the appropriate screen based on authentication status
   Widget initialScreen = user != null ? HomeScreen() : LoginScreen();
 
+
   runApp(MaterialApp(
     home: initialScreen,
+
     debugShowCheckedModeBanner: false,
     theme: ThemeData(colorScheme: ColorScheme.fromSwatch(primarySwatch: Colors.lightGreen)),
     routes: {
